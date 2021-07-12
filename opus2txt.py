@@ -26,12 +26,13 @@ def parse_arguments():
 
 files, dir, out_dir = parse_arguments()
 
+# Create output directory if it doesn't exist
 if not os.path.isdir(out_dir):
     os.mkdir(out_dir)
 
 for i, file in enumerate(files):
 
-    print(f"File {i+1}/{len(files)}.")
+    print(f"File {i+1}/{len(files)}.") # Progress counter
 
     filepath = os.path.join(dir, file)
     outpath = os.path.join(out_dir, file + ".txt")
@@ -39,35 +40,35 @@ for i, file in enumerate(files):
     with open(filepath, "rb") as f:
         data = f.read()
     
-    data = data.split(sep=b'END\x00')
+    data = data.split(sep=b'END\x00') # Split into data segments
     for i, segment in enumerate(data):
-        if segment[-4:] == b'OK\x00\x00' and data[i+1][-4:] == b'WN\x00\x00':
+        if segment[-4:] == b'OK\x00\x00' and data[i+1][-4:] == b'WN\x00\x00': # Find segment containing Raman data (Wavenumbers and Intensities)
             wn_data = data[i+1]
             int_data = data[i+2]
             break
 
-    wn_data = [wn_data[j:j+4] for j in range(0, len(wn_data), 4)]
+    wn_data = [wn_data[j:j+4] for j in range(0, len(wn_data), 4)] # Split into 4 Byte junks
     
     for j in range(len(wn_data)):
-        if wn_data[j] == b'NPT\x00':
-            npt = struct.unpack("<I", wn_data[j+2])[0]
-        if wn_data[j] == b'FXV\x00':
-            fxv = struct.unpack("<d", b''.join(wn_data[j+2:j+4]))[0]
-        if wn_data[j] == b'LXV\x00':
-            lxv = struct.unpack("<d", b''.join(wn_data[j+2:j+4]))[0]
+        if wn_data[j] == b'NPT\x00': # Number of data points
+            npt = struct.unpack("<I", wn_data[j+2])[0] # Unsigned Integer, little Endian
+        if wn_data[j] == b'FXV\x00': # First Wavenumber
+            fxv = struct.unpack("<d", b''.join(wn_data[j+2:j+4]))[0] # Double float, Little Endian
+        if wn_data[j] == b'LXV\x00': # Last Wavenumber
+            lxv = struct.unpack("<d", b''.join(wn_data[j+2:j+4]))[0] # Double float, Little Endian
 
     # print(f"{npt}, {fxv}, {lxv}")
 
-    wns = np.linspace(fxv, lxv, npt)
+    wns = np.linspace(fxv, lxv, npt) # Create Wavenumber array
 
-    int_data = int_data[8:8+npt*4]
+    int_data = int_data[8:8+npt*4] # Remove leading zeros and split into 4 Byte junks
     int_data = [int_data[j:j+4] for j in range(0, len(int_data), 4)]
 
-    ints = np.zeros(npt)
+    ints = np.zeros(npt) # Prepare empty array for Intensity data
     for j, val in enumerate(int_data):
-        ints[j] = struct.unpack("<f", val)[0]
+        ints[j] = struct.unpack("<f", val)[0] # Float, Little Endian
     
-    data_out = np.vstack((wns, ints)).T
+    data_out = np.vstack((wns, ints)).T # Combine into one array
 
     np.savetxt(outpath, data_out, delimiter=",", fmt="%.6f")
     
