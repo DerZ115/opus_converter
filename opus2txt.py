@@ -8,7 +8,7 @@ import numpy as np
 def opus2txt(file):
     with open(file, "rb") as f:
         data = f.read()
-    data = data.split(b"END\x00")
+    ramanDataRegex = re.compile(b"END\x00\x00\x00\x00\x00NPT")
 
 
 opus2txt("files/EXTRACT.0")
